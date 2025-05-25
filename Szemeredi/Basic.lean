@@ -17,6 +17,32 @@ open Set Function
 noncomputable section
 
 /-
+Szemeredi's theorem statement
+-/
+open scoped BigOperators
+open Set
+noncomputable def avg_lt_n (a : Set ℕ) (n : ℕ) : ℝ≥0 :=
+  let lt_n := {x ∈ a | x ≤ n}
+  let lt_n_finite : Set.Finite lt_n := by
+    apply Set.Finite.subset (Finset.range (n + 1)).finite_toSet
+    intro x hx
+    simp
+    let ⟨_, hle⟩ := hx
+    exact Nat.lt_succ_of_le hle
+  let fset := lt_n_finite.toFinset
+  (fset.card : ℝ≥0) / (n + 1 : ℝ≥0)
+
+
+def positive_upper_density (a : Set ℕ) : Prop :=
+  let f := fun n => avg_lt_n a n
+  Filter.limsup f Filter.atTop > 0
+
+def has_k_term_arithmetic_sequence (a : Set ℕ) (k : ℕ) : Prop
+  := ∃ n m: ℕ, ∀ i ∈ Finset.range k, n + i*m ∈ a
+
+theorem szemeredi (a : Set ℕ) : positive_upper_density a → ∀ k : ℕ, has_k_term_arithmetic_sequence a k := sorry
+
+/-
 Defining measure-preserving systems, and establishing the SZ property (`Szemeredi`)
 -/
 
@@ -104,22 +130,6 @@ def T : X → X :=
 lemma T_is_measurable : Measurable T := sorry
 
 -- define the positive density measure
-open scoped BigOperators
-open Set
-noncomputable def avg_lt_n (a : Set ℕ) (n : ℕ) : ℝ≥0 :=
-  let lt_n := {x ∈ a | x ≤ n}
-  let lt_n_finite : Set.Finite lt_n := by
-    apply Set.Finite.subset (Finset.range (n + 1)).finite_toSet
-    intro x hx
-    simp
-    let ⟨_, hle⟩ := hx
-    exact Nat.lt_succ_of_le hle
-  let fset := lt_n_finite.toFinset
-  (fset.card : ℝ≥0) / (n + 1 : ℝ≥0)
-
-def positive_upper_density (a : Set ℕ) : Prop :=
-  let f := fun n => avg_lt_n a n
-  Filter.limsup f Filter.atTop > 0
 
 def subset_to_func (a : Set ℕ) [DecidablePred (· ∈ a)] : X :=
   fun i => if h : i ∈ a then ⟨1, by decide⟩ else ⟨0, by decide⟩
