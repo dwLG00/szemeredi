@@ -11,6 +11,8 @@ import Mathlib.Algebra.Order.Field.Basic
 import Mathlib.Data.Set.Finite.Basic
 import Mathlib.Data.Set.Basic
 
+import Szemeredi.auxMeasureTheory
+
 open MeasureTheory NNReal
 open Set Function
 
@@ -21,6 +23,7 @@ Szemeredi's theorem statement
 -/
 open scoped BigOperators
 open Set
+
 noncomputable def avg_lt_n (a : Set ℕ) (n : ℕ) : ℝ≥0 :=
   let lt_n := {x ∈ a | x ≤ n}
   let lt_n_finite : Set.Finite lt_n := by
@@ -68,7 +71,7 @@ structure MPSystem (α : Type*) [MeasurableSpace α] where
   T : α → α
   measure_preserving : ∀ E : Set α, MeasurableSet E → μ E = μ (T⁻¹' E)
 
-structure Szemeredi {α : Type*} [MeasurableSpace α] (system : MPSystem α) : Prop where
+structure SZSystem {α : Type*} [MeasurableSpace α] (system : MPSystem α) : Prop where
     protected liminf : ∀ E : Set α, MeasurableSet E ∧ system.μ E > 0 →
       ∀ k : ℕ, Filter.liminf (fun N : ℕ => first_k_intersections_N_sum system.μ system.T N k E / N) Filter.atTop > 0
 
@@ -78,7 +81,7 @@ lemma sum_gt_exists_term_gt {s : Finset ℕ} {f : ℕ → ℝ≥0} (h : 0 < ∑ 
   have h2 : ∑ i ∈ s, f i ≤ 0 := Finset.sum_nonpos H
   exact lt_irrefl _ (lt_of_lt_of_le h h2)
 
-lemma SZ_implies_one_k_works {α : Type*} [MeasurableSpace α] (system : MPSystem α) (SZ : Szemeredi system)
+lemma SZ_implies_one_k_works {α : Type*} [MeasurableSpace α] (system : MPSystem α) (SZ : SZSystem system)
   : ∀ k : ℕ, ∀ E : Set α, MeasurableSet E ∧ system.μ E > 0 → ∃ m : ℕ, system.μ (first_k_intersections system.T m k E) > 0 := by
   -- intros
   intro k
@@ -121,7 +124,11 @@ def cylinderSets : Set (Set X) :=
 def cylinderMeasurableSpace : MeasurableSpace X :=
   MeasurableSpace.generateFrom cylinderSets
 
+def cylinderTopologicalSpace : TopologicalSpace X :=
+  TopologicalSpace.generateFrom cylinderSets
+
 instance : MeasurableSpace X := cylinderMeasurableSpace
+instance : TopologicalSpace X := cylinderTopologicalSpace
 
 -- The shift map
 def T : X → X :=
@@ -166,20 +173,12 @@ def μs (s : X) (h : positive_upper_density (func_to_subset s)) : ℕ → Measur
   )
 
 -- the actual measure
-def μ (s : X) (h : positive_upper_density (func_to_subset s)) : Measure X := sorry
+def μ (s : X) (h : positive_upper_density (func_to_subset s)) : FiniteMeasure X := sorry
 
-/-
-example : positive_upper_density {x : ℕ | ∃ y : ℕ, 2 * y = x} := by
-  let evens := {x : ℕ | ∃ y : ℕ, 2 * y = x}
-  unfold positive_upper_density
-  let f := fun n ↦ avg_lt_n {x | ∃ y, 2 * y = x} n
-  simp [f]
-  have h : ∀ n : ℕ, f n > 1 / 4 := by
-    intro n
-    unfold f
-    unfold avg_lt_n
-    let lt_n := {x | x ∈ {x | ∃ y, 2 * y = x} ∧ x ≤ n}
-    let lt_n_finite := Set.Finite lt_n
-    induction n
+lemma μ_is_μs_weak_limit (s : X) (h : positive_upper_density (func_to_subset s)): auxMeasureTheory.IsWeakLimit (μs s h) (μ s h) := sorry
 
--/
+def szemeredi_correspondence (s : X) (h : positive_upper_density (func_to_subset s)) : MPSystem X := {
+  μ := μ s h,
+  T := T,
+  measure_preserving := sorry
+}
