@@ -203,10 +203,13 @@ def μs_proto (n : ℕ) (s : X) : (subset : Set X) → MeasurableSet subset → 
     )
   )
 
--- TODO: prove that μs_proto ∅ = 0
-lemma μs_proto_empty_zero : ∀ n : ℕ, ∀ s : X, μs_proto n s ∅ MeasurableSet.empty = 0 :=
-  sorry
+lemma μs_proto_empty_zero
+  : ∀ n : ℕ, ∀ s : X, μs_proto n s ∅ MeasurableSet.empty = 0 := by
+  intro n s
+  unfold μs_proto
+  simp
 
+open BigOperators
 
 def μs (s : X) (h : positive_upper_density (func_to_subset s)) : ℕ → Measure X :=
   fun n : ℕ => (
@@ -216,7 +219,14 @@ def μs (s : X) (h : positive_upper_density (func_to_subset s)) : ℕ → Measur
         apply ENNReal.coe_eq_zero.2
         exact μs_proto_empty_zero n s
       )
-      (sorry) -- TODO: prove that μs is additive
+      (by
+        intro f h h₁
+        simp
+        unfold μs_proto
+        have h_ne : (↑n + 1 : ENNReal) ≠ 0 := by simp
+        simp
+        --rw [tsum_div_const (fun i => (μs_proto._proof_4 n s (f i)).toFinset.card) h_ne]
+      ) -- TODO: prove that μs is additive
   )
 
 -- the actual measure
