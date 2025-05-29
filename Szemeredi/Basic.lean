@@ -132,7 +132,7 @@ def cylinderTopologicalSpace : TopologicalSpace X :=
 instance : MeasurableSpace X := cylinderMeasurableSpace
 instance : TopologicalSpace X := cylinderTopologicalSpace
 
--- The shift map
+-- The shift map, and proving the shift map is measurable
 def T : X → X :=
   fun f : X => (fun i : ℕ => f (i + 1))
 
@@ -183,13 +183,22 @@ def func_to_subset (s : X) : Set ℕ :=
   {x : ℕ | s x = ⟨1, by decide⟩} -- Need to do because of how we defined Bin
 
 def first_n_T (s : X) (n : ℕ) : Set X :=
-  {T^[i] s | i ∈ Finset.range n}
+  (Finset.range n).toSet.image (fun i => T^[i] s)
 
 def μs_proto (n : ℕ) (s : X) : (subset : Set X) → MeasurableSet subset → ℝ≥0 :=
   (fun subset : Set X =>
     (fun h : MeasurableSet subset =>
       let first_n_T_in_subset := (subset ∩ first_n_T s n)
-      let fnTis_finite : Set.Finite first_n_T_in_subset := by sorry
+      let fnTis_finite : Set.Finite first_n_T_in_subset := by
+        have h₁ : first_n_T_in_subset ⊆ first_n_T s n := by
+          unfold first_n_T_in_subset
+          simp
+        have h₂ : (first_n_T s n).Finite := by
+          unfold first_n_T
+          exact (Finset.finite_toSet (Finset.range n)).image (fun i => T^[i] s)
+        apply Set.Finite.subset
+        . exact h₂
+        . exact h₁
       (fnTis_finite.toFinset.card : ℝ≥0) / (n + 1 : ℝ≥0)
     )
   )
