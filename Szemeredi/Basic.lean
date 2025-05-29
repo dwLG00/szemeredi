@@ -115,9 +115,11 @@ open Set MeasureTheory Topology
 def Bin := Finset.range 2
 def X := ℕ → Bin
 
+@[simp]
 def cylinder (f : ℕ → Bin) (s : Finset ℕ) : Set X :=
   { x | ∀ i ∈ s, x i = f i }
 
+@[simp]
 def cylinderSets : Set (Set X) :=
   { A | ∃ (s : Finset ℕ) (f : ℕ → Bin), A = cylinder f s }
 
@@ -134,7 +136,43 @@ instance : TopologicalSpace X := cylinderTopologicalSpace
 def T : X → X :=
   fun f : X => (fun i : ℕ => f (i + 1))
 
-lemma T_is_measurable : Measurable T := sorry
+lemma preimage_of_cylinder_is_measurable (b : Set X) (hb : b ∈ cylinderSets)
+  : MeasurableSet (T⁻¹' b) := by
+  rcases hb with ⟨s, f, rfl⟩
+  let s' : Finset ℕ := s.image Nat.succ
+  let g := f ∘ Nat.pred
+  have : T ⁻¹' cylinder f s = cylinder g s' := by
+    ext x
+    simp [cylinder, Set.preimage, s', g]
+    unfold T
+    rfl
+  rw [this]
+  let b := cylinder g s'
+  change MeasurableSet b
+  have h: b ∈ cylinderSets := ⟨s', g, rfl⟩
+  apply GenerateMeasurable.basic
+  exact h
+
+lemma T_is_measurable : Measurable T := by
+  intro a
+  intro h
+  unfold MeasurableSet at h
+  unfold instMeasurableSpaceX at h
+  unfold cylinderMeasurableSpace at h
+  -- h : (generateFrom cylinderSets).MeasurableSet' a
+  dsimp only [MeasurableSpace.generateFrom, MeasurableSpace.MeasurableSet'] at h
+  induction h with
+  | basic b h₁ => exact preimage_of_cylinder_is_measurable b h₁
+  | empty => dsimp only [Set.preimage_empty]; exact MeasurableSet.empty
+  | compl t ht htinv =>
+    dsimp
+    let t' := T ⁻¹' t
+    apply GenerateMeasurable.compl t'
+    exact htinv
+  | iUnion f h h₁ =>
+    simp
+    apply GenerateMeasurable.iUnion
+    exact h₁
 
 -- define the positive density measure
 
@@ -142,7 +180,7 @@ def subset_to_func (a : Set ℕ) [DecidablePred (· ∈ a)] : X :=
   fun i => if h : i ∈ a then ⟨1, by decide⟩ else ⟨0, by decide⟩
 
 def func_to_subset (s : X) : Set ℕ :=
-  {x : ℕ | s x = ⟨1, by decide⟩}
+  {x : ℕ | s x = ⟨1, by decide⟩} -- Need to do because of how we defined Bin
 
 def first_n_T (s : X) (n : ℕ) : Set X :=
   {T^[i] s | i ∈ Finset.range n}
