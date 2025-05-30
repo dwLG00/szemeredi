@@ -156,7 +156,35 @@ def cylinderHausdorffSpace : T2Space X := {
     exact ⟨u, v, hu, hv, hu_x, hv_y, uv_disjoint⟩
 }
 
+def cylinderCompact (a : Set X) (ha : a ∈ cylinderSets) : IsCompact a := sorry
+
+def cylinderLocallyCompactSpace : LocallyCompactSpace X := {
+  local_compact_nhds := by
+    intros x n hn
+    have hn' : IsOpen n := by sorry
+    have : ∃ (A : Finset (Set cylinderSets)), n = ⋃ a ∈ A, ⋂₀ a := by sorry
+    let ⟨A, hA⟩ := this
+    have : A.Nonempty := by
+      by_contra! H
+      simp at H
+      rw [H] at hA
+      simp at hA
+      rw [hA] at hn
+      apply Filter.empty_not_mem at hn
+      exact hn
+    have hA': ∃ a ∈ A, a.Nonempty := by
+      by_contra! H
+      have : A = ∅ ∨ A = {∅} := by sorry
+      rcases this with ⟨nothing, setnothing⟩
+      . sorry
+      . sorry
+    --rcases this with ⟨a, ha⟩
+    --unfold cylinderSets at a
+    sorry
+}
+
 instance : T2Space X := cylinderHausdorffSpace
+instance : LocallyCompactSpace X := cylinderLocallyCompactSpace
 
 -- The shift map, and proving the shift map is measurable
 def T : X → X :=
