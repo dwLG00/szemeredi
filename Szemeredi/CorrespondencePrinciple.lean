@@ -10,6 +10,7 @@ import Mathlib.Tactic
 import Mathlib.Algebra.Order.Field.Basic
 import Mathlib.Data.Set.Finite.Basic
 import Mathlib.Data.Set.Basic
+import Mathlib.Logic.Function.Basic
 
 import Szemeredi.AuxMeasureTheory
 import Szemeredi.Aux
@@ -106,6 +107,56 @@ def cylinderTopologicalSpace : TopologicalSpace X :=
 
 instance : MeasurableSpace X := cylinderMeasurableSpace
 instance : TopologicalSpace X := cylinderTopologicalSpace
+
+-- Need X to be locally compact hausdorff in order to guarantee existence of weak-* measure
+def cylinderHausdorffSpace : T2Space X := {
+  t2 := by
+    intro x y
+    intro h
+    have h₁ : ∃ i : ℕ, x i ≠ y i := Function.ne_iff.mp h
+    let ⟨i, hi⟩ := h₁
+    set u := cylinder x {i} with u'
+    set v := cylinder y {i} with v'
+    have uv_disjoint : Disjoint u v := by
+      unfold Disjoint
+      intros a hau hav
+      simp
+      by_contra! H
+      rcases H with ⟨a', ha⟩
+      have haiu : a' i = x i := by
+        let ha' := ha
+        apply hau at ha'
+        unfold u at ha'
+        unfold cylinder at ha'
+        simp at ha'
+        exact ha'
+      have haiv : a' i = y i := by
+        apply hav at ha
+        unfold v at ha
+        unfold cylinder at ha
+        simp at ha
+        exact ha
+      have xiyi : x i = y i := Eq.trans haiu.symm haiv
+      absurd xiyi
+      exact hi
+    have hu : IsOpen u := by
+      have : u ∈ cylinderSets := ⟨{i}, x, rfl⟩
+      exact TopologicalSpace.GenerateOpen.basic u this
+    have hv : IsOpen v := by
+      have : v ∈ cylinderSets := ⟨{i}, y, rfl⟩
+      exact TopologicalSpace.GenerateOpen.basic v this
+    have hu_x : x ∈ u := by
+      unfold cylinder at u'
+      rw [u']
+      simp
+    have hv_y : y ∈ v := by
+      unfold cylinder at v'
+      rw [v']
+      simp
+    exact ⟨u, v, hu, hv, hu_x, hv_y, uv_disjoint⟩
+}
+
+instance : T2Space X := cylinderHausdorffSpace
 
 -- The shift map, and proving the shift map is measurable
 def T : X → X :=
