@@ -156,31 +156,57 @@ def cylinderHausdorffSpace : T2Space X := {
     exact ⟨u, v, hu, hv, hu_x, hv_y, uv_disjoint⟩
 }
 
+lemma finite_intersections_of_cylinders_is_cylinder (a : Set (Set X)) (ha : a ≤ cylinderSets) : ⋂₀ a ∈ cylinderSets := sorry
+
 def cylinderCompact (a : Set X) (ha : a ∈ cylinderSets) : IsCompact a := sorry
 
 def cylinderLocallyCompactSpace : LocallyCompactSpace X := {
   local_compact_nhds := by
-    intros x n hn
-    have hn' : IsOpen n := by sorry
-    have : ∃ (A : Finset (Set cylinderSets)), n = ⋃ a ∈ A, ⋂₀ a := by sorry
+    intros x n' hn'
+    rcases mem_nhds_iff.mp hn' with ⟨n, hnn', hno, hn⟩
+    have hn₁ : n ∈ 𝓝 x := mem_nhds_iff.mpr ⟨n, subset_rfl, hno, hn⟩
+    --have : ∃ (A : Finset (Set cylinderSets)), n = ⋃ a ∈ A, ⋂₀ a := by sorry
+    have : ∃ (A : Set cylinderSets), n = ⋃₀ A := by sorry
     let ⟨A, hA⟩ := this
-    have : A.Nonempty := by
+    simp at hA
+    have hAu: A.Nonempty := by
       by_contra! H
-      simp at H
       rw [H] at hA
       simp at hA
       rw [hA] at hn
-      apply Filter.empty_not_mem at hn
       exact hn
-    have hA': ∃ a ∈ A, a.Nonempty := by
-      by_contra! H
-      have : A = ∅ ∨ A = {∅} := by sorry
-      rcases this with ⟨nothing, setnothing⟩
-      . sorry
-      . sorry
-    --rcases this with ⟨a, ha⟩
-    --unfold cylinderSets at a
-    sorry
+    have hnx : x ∈ n := by
+      rcases mem_nhds_iff.mp hn₁ with ⟨_, htn, _, hxt⟩
+      exact htn hxt
+    have : ∃ a ∈ A, x ∈ (a : Set X) := by
+      subst hA
+      rcases Set.mem_iUnion.1 hnx with ⟨a, a', h₁, h₂⟩
+      simp at h₁
+      let ⟨h₃, h₄⟩ := h₁
+      rw [←h₄] at h₂
+      exact ⟨a, h₃, h₂⟩
+    let ⟨a, ha, hax⟩ := this
+    have : a ≤ n' := by
+      apply subset_trans _ hnn'
+      subst hA
+      intro y hy
+      --exact Set.mem_iUnion.1 ⟨a, ha, hy⟩
+      apply Set.mem_iUnion.2
+      use a
+      exact Set.mem_iUnion.2 ⟨ha, hy⟩
+      --subst hA
+      -- @iUnion X { x // ∃ s f, x = {x | ∀ i ∈ s, x i = f i} } fun a ↦ ⋃ (_ : a ∈ A), ↑a : Set X
+      --apply Set.subset_iUnion
+    use a
+    have a_open : IsOpen (a : Set X) := by
+      rcases a with ⟨s, hs⟩
+      exact TopologicalSpace.GenerateOpen.basic s hs
+    have a_nbhd : ↑a ∈ 𝓝 x := a_open.mem_nhds hax
+    have a_compact : IsCompact (a : Set X) := by
+      rcases a with ⟨s, hs⟩
+      have s_compact : IsCompact s := cylinderCompact s hs
+      exact s_compact
+    exact ⟨a_nbhd, this, a_compact⟩
 }
 
 instance : T2Space X := cylinderHausdorffSpace
