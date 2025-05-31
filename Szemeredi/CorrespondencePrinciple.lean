@@ -6,6 +6,7 @@ import Mathlib.MeasureTheory.Constructions.Pi
 import Mathlib.Dynamics.Ergodic.MeasurePreserving
 import Mathlib.Order.LiminfLimsup
 import Mathlib.Data.Finset.Basic
+import Mathlib.Data.Finset.Insert
 import Mathlib.Tactic
 import Mathlib.Algebra.Order.Field.Basic
 import Mathlib.Data.Set.Finite.Basic
@@ -156,7 +157,133 @@ def cylinderHausdorffSpace : T2Space X := {
     exact ⟨u, v, hu, hv, hu_x, hv_y, uv_disjoint⟩
 }
 
-lemma finite_intersections_of_cylinders_is_cylinder (a : Set (Set X)) (ha : a ≤ cylinderSets) : ⋂₀ a ∈ cylinderSets := sorry
+open Std
+open Finset
+open Set
+
+lemma finite_intersections_of_cylinders_is_cylinder (a : Set (Set X)) (ha : a ≤ cylinderSets) (ha' : Set.Finite a)
+  : ⋂₀ a ∈ cylinderSets ∨ ⋂₀ a = ∅ := by
+    induction a, ha' using Set.Finite.induction_on with
+    | empty =>
+      simp
+      apply Or.intro_left
+      let f : X := (fun i => ⟨1, by decide⟩)
+      have : Set.univ = cylinder f ∅ := by
+        unfold cylinder
+        simp
+      exact ⟨∅, f, this⟩
+    | @insert x s h_notin_s h_finite h_main_implication =>
+      have ⟨hx, s_cylinder⟩ := Set.insert_subset_iff.mp ha
+      apply h_main_implication at s_cylinder
+      have h_cap : x ∩ ⋂₀ s = ⋂₀ insert x s := by
+        ext b
+        simp
+      rcases s_cylinder with h₁ | h₂
+      . simp at h₁
+        obtain ⟨ss, fs, hs⟩ := h₁
+        simp at hx
+        obtain ⟨sx, fx, hx'⟩ := hx
+        by_cases H : ∀ i ∈ ss ∩ sx, fs i = fx i
+        . let susx := ss ∪ sx
+          have h_susx : susx = ss ∪ sx := by rfl
+          -- Intersection of two cylinders: cylinder susx f
+          --   where f is piecewise defined by fs, fx on ss, sx resp.
+          --   and agree on ss ∩ sx
+          let f : X := (fun i =>
+            if i ∈ sx then fx i else
+            if i ∈ ss then fs i else
+            ⟨1, by decide⟩ -- throwaway
+          )
+          let new_cylinder := cylinder f susx
+          have h_new_cylinder : new_cylinder = cylinder f susx := rfl
+          have : new_cylinder ∈ cylinderSets := by exact ⟨susx, f, h_new_cylinder⟩
+          have h_nc : new_cylinder = x ∩ ⋂₀ s := by
+            rw [h_new_cylinder]
+            unfold cylinder
+            ext z
+            constructor
+            . intro hz
+              simp at hz
+              have hzx : z ∈ x := by
+                rw [h_susx] at hz
+                have : ∀ i ∈ sx, z i = f i := by
+                  intro i hi
+                  apply hz i
+                  exact Finset.mem_union_right _ hi
+                have : ∀ i ∈ sx, z i = fx i := by
+                  intro i hi
+                  unfold f at this
+                  let goal := this i hi
+                  simp [hi] at goal
+                  exact goal
+                rw [hx']
+                exact this
+              have hzs : z ∈ ⋂₀ s := by
+                rw [h_susx] at hz
+                have : ∀ i ∈ ss, z i = f i := by
+                  intro i hi
+                  apply hz i
+                  exact Finset.mem_union_left _ hi
+                have : ∀ i ∈ ss, z i = fs i := by
+                  intro i hi
+                  unfold f at this
+                  let goal := this i hi
+                  split_ifs at goal with in_x
+                  . have : i ∈ ss ∩ sx := by exact Finset.mem_inter.2 ⟨hi, in_x⟩
+                    apply H at this
+                    rw [←this] at goal
+                    exact goal
+                  . exact goal
+                rw [hs]
+                exact this
+              exact ⟨hzx, hzs⟩
+            . intro hz
+              rw [hx', hs] at hz
+              simp at hz
+              have ⟨hzx, hzs⟩ := hz
+              have : ∀ i ∈ susx, z i = f i := by
+                have hzx' : ∀ i ∈ sx, z i = f i := by
+                  unfold f
+                  intro i hi
+                  simp [hi]
+                  apply hzx at hi
+                  exact hi
+                have hzs' : ∀ i ∈ ss, z i = f i := by
+                  unfold f
+                  intro i hi
+                  simp [hi]
+                  split_ifs with in_x
+                  . apply hzx at in_x
+                    exact in_x
+                  . apply hzs at hi
+                    exact hi
+                rw [Finset.forall_mem_union]
+                change ((∀ i ∈ ss, z i = f i) ∧ ∀ i ∈ sx, z i = f i)
+                exact ⟨hzs', hzx'⟩
+              exact this
+          rw [h_nc, h_cap] at this
+          exact Or.inl this
+        . simp at H
+          obtain ⟨x', hxss, hxsx, hnf⟩ := H
+          have : x ∩ ⋂₀ s = ∅ := by
+            by_contra! H'
+            let ⟨y, hy⟩ := H'
+            let ⟨hyx, hyis⟩ := hy
+            rw [hx'] at hyx
+            simp at hyx
+            rw [hs] at hyis
+            simp at hyis
+            specialize hyx x' hxsx
+            specialize hyis x' hxss
+            rw [hyx] at hyis
+            exact hnf hyis.symm
+          rw [h_cap] at this
+          exact Or.inr this
+      . have : x ∩ ⋂₀ s = ∅ := by
+          rw [h₂]
+          exact Set.inter_empty x
+        rw [h_cap] at this
+        exact Or.inr this
 
 def cylinderCompact (a : Set X) (ha : a ∈ cylinderSets) : IsCompact a := sorry
 
