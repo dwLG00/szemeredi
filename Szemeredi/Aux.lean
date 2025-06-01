@@ -37,7 +37,6 @@ def has_k_term_arithmetic_sequence (a : Set ℕ) (k : ℕ) : Prop
   := ∃ n m: ℕ, ∀ i ∈ Finset.range k, n + i*m ∈ a
 
 -- Topology
-section
 open TopologicalSpace
 open Finset
 variable {X : Type*}
@@ -183,4 +182,3 @@ lemma open_sets_are_infinite_unions_of_finite_intersections :
           apply hx' at hz'
           exact hz'
       exact ⟨hVF, hSC⟩
-end

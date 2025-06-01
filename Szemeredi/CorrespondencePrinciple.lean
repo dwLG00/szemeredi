@@ -293,7 +293,51 @@ def cylinderLocallyCompactSpace : LocallyCompactSpace X := {
     intros x n' hn'
     rcases mem_nhds_iff.mp hn' with ⟨n, hnn', hno, hn⟩
     have hn₁ : n ∈ 𝓝 x := mem_nhds_iff.mpr ⟨n, subset_rfl, hno, hn⟩
-    have : ∃ (A : Set (Set X)), A ⊆ cylinderSets ∧ n = ⋃₀ A := by sorry
+    -- cylinderSets is a basis bc finite intersections are cylinder sets or ∅
+    have : ∃ (A : Set (Set X)), A ⊆ cylinderSets ∧ n = ⋃₀ A := by
+      have : ∃ (C : Set (Set X)), (∀ V ∈ C, ∃ (F : Finset (Set X)),
+        (↑F : Set (Set X)) ⊆ cylinderSets ∧ V = ⋂₀ (↑F)) ∧ n = ⋃₀ C :=
+          open_sets_are_infinite_unions_of_finite_intersections hno
+      let ⟨C, hC₁, hC₂⟩ := this
+      have : ∀ V ∈ C, V ∈ cylinderSets ∨ V = ∅ := by
+        intro V hV
+        specialize hC₁ V hV
+        let ⟨F, hF₁, hF₂⟩ := hC₁
+        have : ⋂₀ ↑F ∈ cylinderSets ∨ ⋂₀ (↑F : Set (Set X)) = ∅ := by
+          have hF : (↑F : Set (Set X)).Finite := by simp
+          exact finite_intersections_of_cylinders_is_cylinder F hF₁ hF
+        rw [←hF₂] at this
+        exact this
+      let A : Set (Set X) := {x | x ∈ C ∧ x ≠ ∅}
+      use A
+      apply And.intro
+      . intro z hz
+        unfold A at hz
+        simp at hz
+        specialize this z hz.1
+        exact Or.resolve_right this hz.2
+      . unfold A
+        simp
+        ext x
+        constructor
+        . rw [hC₂]
+          intro hC
+          let ⟨C', hxC, hxC'⟩ := Set.mem_sUnion.1 hC
+          simp
+          use C'
+          apply And.intro _ hxC'
+          have : C' ≠ ∅ := by
+            have h_nonempty : C'.Nonempty := ⟨x, hxC'⟩
+            exact (Set.nonempty_iff_ne_empty).1 h_nonempty
+          exact ⟨hxC, this⟩
+        . intro hx
+          simp at hx
+          let ⟨t, ht₁, ht₂⟩ := hx
+          rw [hC₂]
+          let ⟨ht, _⟩ := ht₁
+          exact Set.mem_sUnion.2 ⟨t, ht, ht₂⟩
+    -- A is a set of cylinder sets, and x ∈ ⋃₀ A, so A isn't empty
+    --   => ∃ a ∈ A which is a cylinder set -> compact, and x ∈ a
     let ⟨A, h_Acylinder, hnA⟩ := this
     have hAu : A.Nonempty := by
       by_contra! H
