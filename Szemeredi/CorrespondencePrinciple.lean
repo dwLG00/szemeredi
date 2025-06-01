@@ -161,10 +161,11 @@ open Std
 open Finset
 open Set
 
-lemma finite_intersections_of_cylinders_is_cylinder (a : Set (Set X)) (ha : a ≤ cylinderSets) (ha' : Set.Finite a)
+lemma finite_intersections_of_cylinders_is_cylinder
+  (a : Set (Set X)) (ha : a ≤ cylinderSets) (ha' : Set.Finite a)
   : ⋂₀ a ∈ cylinderSets ∨ ⋂₀ a = ∅ := by
     induction a, ha' using Set.Finite.induction_on with
-    | empty =>
+    | empty => -- Cylinder taken over an empty set is the full set
       simp
       apply Or.intro_left
       let f : X := (fun i => ⟨1, by decide⟩)
@@ -175,16 +176,16 @@ lemma finite_intersections_of_cylinders_is_cylinder (a : Set (Set X)) (ha : a �
     | @insert x s h_notin_s h_finite h_main_implication =>
       have ⟨hx, s_cylinder⟩ := Set.insert_subset_iff.mp ha
       apply h_main_implication at s_cylinder
-      have h_cap : x ∩ ⋂₀ s = ⋂₀ insert x s := by
+      have h_cap : x ∩ ⋂₀ s = ⋂₀ insert x s := by -- useful lemma
         ext b
         simp
-      rcases s_cylinder with h₁ | h₂
-      . simp at h₁
+      rcases s_cylinder with h₁ | h₂ -- split on ⋂₀ s being cylinder or empty
+      . simp at h₁ -- case: ⋂₀ s is a cylinder
         obtain ⟨ss, fs, hs⟩ := h₁
         simp at hx
         obtain ⟨sx, fx, hx'⟩ := hx
-        by_cases H : ∀ i ∈ ss ∩ sx, fs i = fx i
-        . let susx := ss ∪ sx
+        by_cases H : ∀ i ∈ ss ∩ sx, fs i = fx i -- split on if fs, fx agree on ss ∩ sx
+        . let susx := ss ∪ sx -- case : fs i = fx i on ss ∩ sx
           have h_susx : susx = ss ∪ sx := by rfl
           -- Intersection of two cylinders: cylinder susx f
           --   where f is piecewise defined by fs, fx on ss, sx resp.
@@ -197,7 +198,7 @@ lemma finite_intersections_of_cylinders_is_cylinder (a : Set (Set X)) (ha : a �
           let new_cylinder := cylinder f susx
           have h_new_cylinder : new_cylinder = cylinder f susx := rfl
           have : new_cylinder ∈ cylinderSets := by exact ⟨susx, f, h_new_cylinder⟩
-          have h_nc : new_cylinder = x ∩ ⋂₀ s := by
+          have h_nc : new_cylinder = x ∩ ⋂₀ s := by -- need to prove both directions
             rw [h_new_cylinder]
             unfold cylinder
             ext z
@@ -263,7 +264,7 @@ lemma finite_intersections_of_cylinders_is_cylinder (a : Set (Set X)) (ha : a �
               exact this
           rw [h_nc, h_cap] at this
           exact Or.inl this
-        . simp at H
+        . simp at H -- case : fx and fs don't agree -> the intersection is empty
           obtain ⟨x', hxss, hxsx, hnf⟩ := H
           have : x ∩ ⋂₀ s = ∅ := by
             by_contra! H'
@@ -279,7 +280,7 @@ lemma finite_intersections_of_cylinders_is_cylinder (a : Set (Set X)) (ha : a �
             exact hnf hyis.symm
           rw [h_cap] at this
           exact Or.inr this
-      . have : x ∩ ⋂₀ s = ∅ := by
+      . have : x ∩ ⋂₀ s = ∅ := by -- case : ⋂₀ s = ∅
           rw [h₂]
           exact Set.inter_empty x
         rw [h_cap] at this
@@ -292,48 +293,29 @@ def cylinderLocallyCompactSpace : LocallyCompactSpace X := {
     intros x n' hn'
     rcases mem_nhds_iff.mp hn' with ⟨n, hnn', hno, hn⟩
     have hn₁ : n ∈ 𝓝 x := mem_nhds_iff.mpr ⟨n, subset_rfl, hno, hn⟩
-    --have : ∃ (A : Finset (Set cylinderSets)), n = ⋃ a ∈ A, ⋂₀ a := by sorry
-    have : ∃ (A : Set cylinderSets), n = ⋃₀ A := by sorry
-    let ⟨A, hA⟩ := this
-    simp at hA
-    have hAu: A.Nonempty := by
+    have : ∃ (A : Set (Set X)), A ⊆ cylinderSets ∧ n = ⋃₀ A := by sorry
+    let ⟨A, h_Acylinder, hnA⟩ := this
+    have hAu : A.Nonempty := by
       by_contra! H
-      rw [H] at hA
-      simp at hA
-      rw [hA] at hn
+      rw [H] at hnA
+      simp at hnA
+      rw [hnA] at hn
       exact hn
     have hnx : x ∈ n := by
       rcases mem_nhds_iff.mp hn₁ with ⟨_, htn, _, hxt⟩
       exact htn hxt
-    have : ∃ a ∈ A, x ∈ (a : Set X) := by
-      subst hA
-      rcases Set.mem_iUnion.1 hnx with ⟨a, a', h₁, h₂⟩
-      simp at h₁
-      let ⟨h₃, h₄⟩ := h₁
-      rw [←h₄] at h₂
-      exact ⟨a, h₃, h₂⟩
-    let ⟨a, ha, hax⟩ := this
-    have : a ≤ n' := by
+    rw [hnA] at hnx
+    obtain ⟨a, ha, hax⟩ := Set.mem_sUnion.1 hnx
+    have han' : a ⊆ n' := by
       apply subset_trans _ hnn'
-      subst hA
-      intro y hy
-      --exact Set.mem_iUnion.1 ⟨a, ha, hy⟩
-      apply Set.mem_iUnion.2
-      use a
-      exact Set.mem_iUnion.2 ⟨ha, hy⟩
-      --subst hA
-      -- @iUnion X { x // ∃ s f, x = {x | ∀ i ∈ s, x i = f i} } fun a ↦ ⋃ (_ : a ∈ A), ↑a : Set X
-      --apply Set.subset_iUnion
+      rw [hnA]
+      exact Set.subset_sUnion_of_mem ha
     use a
-    have a_open : IsOpen (a : Set X) := by
-      rcases a with ⟨s, hs⟩
-      exact TopologicalSpace.GenerateOpen.basic s hs
-    have a_nbhd : ↑a ∈ 𝓝 x := a_open.mem_nhds hax
-    have a_compact : IsCompact (a : Set X) := by
-      rcases a with ⟨s, hs⟩
-      have s_compact : IsCompact s := cylinderCompact s hs
-      exact s_compact
-    exact ⟨a_nbhd, this, a_compact⟩
+    apply h_Acylinder at ha
+    have a_open : IsOpen a := TopologicalSpace.GenerateOpen.basic a ha
+    have a_nhd : a ∈ 𝓝 x := a_open.mem_nhds hax
+    have a_compact : IsCompact a := cylinderCompact a ha
+    exact ⟨a_nhd, han', a_compact⟩
 }
 
 instance : T2Space X := cylinderHausdorffSpace
