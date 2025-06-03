@@ -12,6 +12,7 @@ import Mathlib.Algebra.Order.Field.Basic
 import Mathlib.Data.Set.Finite.Basic
 import Mathlib.Data.Set.Basic
 import Mathlib.Logic.Function.Basic
+import Init.Classical
 
 import Szemeredi.AuxMeasureTheory
 import Szemeredi.Aux
@@ -341,6 +342,103 @@ lemma open_sets_are_infinite_unions_of_cylinders (a : Set X) (ha : IsOpen a)
         let ⟨ht, _⟩ := ht₁
         exact Set.mem_sUnion.2 ⟨t, ht, ht₂⟩
 
+def cylinderCompactSpace : CompactSpace X := {
+  isCompact_univ := by
+    unfold IsCompact
+    intro cover h_cover_nontrivial h_cover_finer_than_univ
+    let f' : ℕ → X := by
+      intro n
+      induction n with
+      | zero =>
+        by_cases h : Filter.NeBot (Filter.principal (cylinder (fun i => ⟨0, by decide⟩) {0}) ⊓ cover)
+        . exact (fun i => ⟨0, by decide⟩)
+        . exact (fun i => ⟨1, by decide⟩)
+      | succ N f =>
+        let f' : X := (fun i => if i < N then f i else ⟨0, by decide⟩)
+        by_cases h : Filter.NeBot (Filter.principal (cylinder f (Finset.range (N + 1))) ⊓ cover)
+        . exact f'
+        . exact (fun i => if i < N then f i else ⟨1, by decide⟩)
+    let f : X := fun i => f' i i
+    use f
+    apply And.intro (Set.mem_univ f)
+    unfold ClusterPt
+    by_contra! H
+    simp at H
+    apply Filter.inf_eq_bot_iff.mp at H
+    let ⟨U, hU, V, hV, hUV⟩ := H
+    apply mem_nhds_iff.mp at hU
+    have ⟨T, hT, hT_open, hfT⟩ := hU
+    let ⟨A, hA, hTA⟩ := open_sets_are_infinite_unions_of_cylinders T hT_open
+    rw [hTA] at hfT
+    apply Set.mem_sUnion.mp at hfT
+    have ⟨T', hT', hfT'⟩ := hfT
+    have hT'_cylinder : T' ∈ cylinderSets := by
+      apply hA
+      exact hT'
+    unfold cylinderSets at hT'_cylinder
+    simp at hT'_cylinder
+    have ⟨s, f_T', hT'₁⟩ := hT'_cylinder
+    have : s.Nonempty := by
+      by_contra! H
+      simp at H
+      rw [H] at hT'₁
+      simp at hT'₁
+      rw [hT'₁] at hT'
+      have hT_univ: T = Set.univ := by
+        have h_union : (⋃₀ A) = univ := by
+          ext x
+          constructor
+          · intro hx
+            -- if x ∈ ⋃₀ A then certainly x ∈ univ
+            trivial
+          · intro _
+            -- since univ ∈ A and x ∈ univ, x ∈ ⋃₀ A
+            use univ, hT'
+        -- now rewrite T = ⋃₀ A using hTA and replace ⋃₀ A with univ
+        rw [h_union] at hTA
+        exact hTA
+      rw [hT_univ] at hT
+      simp at hT
+      rw [hT] at hUV
+      simp at hUV
+      rw [hUV] at hV
+      have := Filter.empty_mem_iff_bot.mp hV
+      rw [this] at h_cover_nontrivial
+      exact h_cover_nontrivial.ne rfl
+    let N : ℕ := s.max' this -- s = {i₁, i₂, ..., iₖ = N}
+    let s' := Finset.range (N + 1) -- s' = {0, ..., N}
+    let T'' := cylinder f s' -- f ∈ T ⊆ T' = cylinder (f' N) s'
+    have hT'T'' : T'' ⊆ T' := by
+      dsimp [T'']
+      rw [hT'₁]
+      simp
+      intro a h
+      have : s ⊆ s' := by
+        dsimp [s']
+        intro z hz
+        have : z ≤ N := by
+          dsimp [N]
+          exact s.le_max' z hz
+        exact Finset.mem_range.mpr (Nat.lt_succ_iff.mpr this)
+      intro i hi
+      have hi' : i ∈ s' := this hi
+      specialize h i hi'
+      rw [h]
+      rw [hT'₁] at hfT'
+      simp at hfT'
+      exact hfT' i hi
+    have hT''U : T'' ⊆ U := by
+      have : T' ⊆ T := by
+        rw [hTA]
+        exact Set.subset_sUnion_of_mem hT'
+      exact (hT'T''.trans this).trans hT
+    have hT''V : T'' ∩ V = ∅ := by
+      have h₁ : T'' ∩ V ⊆ U ∩ V := Set.inter_subset_inter_left _ hT''U
+      have h₂ : T'' ∩ V ⊆ ∅ := by rwa [hUV] at h₁
+      exact (Set.subset_empty_iff.mp h₂)
+    sorry
+}
+
 lemma cylinderCompact (a : Set X) (ha : a ∈ cylinderSets) : IsCompact a := by
   unfold IsCompact
   intro cover h_cover h_cover_sub
@@ -360,8 +458,27 @@ lemma cylinderCompact (a : Set X) (ha : a ∈ cylinderSets) : IsCompact a := by
   simp at H
   apply Filter.inf_eq_bot_iff.mp at H
   have ⟨U, hU, V, hV, hUV⟩ := H
-  let ⟨T, hT, hT_open, hfT⟩ := mem_nhds_iff.mp hU
-  sorry
+  have hV_split : a ⊆ V ∨ ¬(a ⊆ V) := Classical.em (a ⊆ V)
+  cases hV_split with
+  | inl hV' =>
+    apply hV' at this
+    apply mem_nhds_iff.mp at hU
+    have ⟨T, hTU, hT_open, hfT⟩ := hU
+    apply hTU at hfT
+    have : f ∈ U ∩ V := by exact ⟨hfT, this⟩
+    rw [hUV] at this
+    exact this
+  | inr hV' =>
+    have ha_cover : a ∈ cover := Filter.le_principal_iff.mp h_cover_sub
+    have h₁ : a ∩ V ∈ cover := Filter.inter_mem ha_cover hV
+    have h₂ : a ∩ V ≠ ∅ := by
+      by_contra! h_empty
+      rw [h_empty] at h₁
+      apply Filter.nonempty_of_mem at h_cover
+      specialize h_cover h₁
+      simp at h_cover
+
+    sorry
 
 def cylinderLocallyCompactSpace : LocallyCompactSpace X := {
   local_compact_nhds := by
