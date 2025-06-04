@@ -132,6 +132,92 @@ lemma cylinder_contains (f : X) (s : Finset ℕ) : f ∈ cylinder f s := by
 def T : X → X :=
   fun f : X => (fun i : ℕ => f (i + 1))
 
+lemma preimage_of_measurable_is_measurable (b : Set X) (hb : MeasurableSet b) : MeasurableSet (T⁻¹' b) := by
+  unfold MeasurableSet instMeasurableSpaceX borel generateFrom at *
+  simp at *
+  induction hb with
+  | basic u hu =>
+    simp at hu
+    have : IsOpen (T⁻¹' u) := by
+      apply isOpen_pi_iff.mp at hu
+      apply isOpen_pi_iff.mpr
+      intro f hfT
+      let g := T f
+      have : g ∈ u := by
+        dsimp [g]
+        apply hfT
+      specialize hu g this
+      let ⟨I, u', hIu'⟩ := hu
+      let J := I.image (fun i => i + 1)
+      let v' := (fun i => if i ≠ 0 then u' (i - 1) else Set.univ)
+      use J, v'
+      apply And.intro
+      . intro a ha
+        simp
+        unfold v'
+        have ha_non_neg: a ≠ 0 := by
+          unfold J at ha
+          simp at ha
+          let ⟨b, hb, hab⟩ := ha
+          rw [←hab]
+          exact Nat.succ_ne_zero b
+        rw [if_pos ha_non_neg]
+        have ha_geq_1: 1 ≤ a := by
+            by_contra ha
+            simp at ha
+            exact ha_non_neg ha
+        have ha_sub_add: a - 1 + 1 = a := Nat.sub_add_cancel ha_geq_1
+        have : f a = g (a - 1) := by
+          unfold g
+          unfold T
+          rw [ha_sub_add]
+        rw [this]
+        set b := a - 1
+        have : b ∈ I := by
+          unfold J at ha
+          simp at ha
+          have : b + 1 = a := by
+            unfold b
+            exact ha_sub_add
+          have ⟨c, hc, hca⟩ := ha
+          rw [←hca] at this
+          simp at this
+          rwa [←this] at hc
+        have hIu'' : (∀ a ∈ I, IsOpen (u' a) ∧ g a ∈ u' a) := And.left hIu'
+        specialize hIu'' b this
+        exact And.right hIu''
+      . have hU : (↑I : Set ℕ).pi u' ⊆ u := hIu'.right
+        unfold Set.pi at *
+        unfold J v'
+        simp at *
+        rw [Set.subset_def]
+        intro x hx
+        have : T x ∈ u := by
+          simp at hx
+          have : ∀ i ∈ I, T x i ∈ u' i := by
+            unfold T
+            exact hx
+          have : T x ∈ {f | ∀ i ∈ I, f i ∈ u' i} := by
+            simp
+            exact this
+          apply hU at this
+          exact this
+        exact this
+    have : T⁻¹' u ∈ {s | IsOpen s} := by simp; exact this
+    apply GenerateMeasurable.basic
+    exact this
+  | empty =>
+    simp
+    exact GenerateMeasurable.empty
+  | compl u hu hu' =>
+    have : T⁻¹' uᶜ = (T⁻¹' u)ᶜ := by rfl
+    rw [this]
+    have : IsOpen (T⁻¹' u) := by sorry
+    sorry
+  | iUnion f hf hf' => sorry
+
+
+
 lemma preimage_of_cylinder_is_measurable (b : Set X) (hb : b ∈ cylinderSets)
   : MeasurableSet (T⁻¹' b) := by
   rcases hb with ⟨s, f, rfl⟩
