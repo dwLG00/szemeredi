@@ -116,6 +116,11 @@ def cylinderMeasurableSpace : MeasurableSpace X :=
 def cylinderTopologicalSpace : TopologicalSpace X :=
   TopologicalSpace.generateFrom cylinderSets
 
+-- Want to define topological structure on Bin so we can use Tychonoff's theorem
+--   to prove cylinder sets in X are compact
+def binTopologicalSpace : TopologicalSpace Bin :=
+  TopologicalSpace.generateFrom {{⟨0, by decide⟩}, {⟨1, by decide⟩}}
+
 instance : MeasurableSpace X := cylinderMeasurableSpace
 instance : TopologicalSpace X := cylinderTopologicalSpace
 
@@ -346,16 +351,29 @@ def cylinderCompactSpace : CompactSpace X := {
   isCompact_univ := by
     unfold IsCompact
     intro cover h_cover_nontrivial h_cover_finer_than_univ
+    /-
+    let f : X := strongInduction (fun n ih =>
+      match n with
+      | 0 =>
+        if ∃ A ∈ cover, ∃ f' ∈ A, f' 0 = ⟨0, by decide⟩
+        then ⟨0, by decide⟩
+        else ⟨1, by decide⟩
+      | n + 1 =>
+        if ∃ A ∈ cover, ∃ f' ∈ A, ∀ m < n, f' m = ih m ()
+        then ⟨0, by decide⟩
+        else ⟨1, by decide⟩
+    )
+    -/
     let f' : ℕ → X := by
       intro n
       induction n with
       | zero =>
-        by_cases h : Filter.NeBot (Filter.principal (cylinder (fun i => ⟨0, by decide⟩) {0}) ⊓ cover)
+        by_cases h : ∀ A ∈ cover, ∃ f' ∈ A, f' 0 = ⟨0, by decide⟩
         . exact (fun i => ⟨0, by decide⟩)
         . exact (fun i => ⟨1, by decide⟩)
       | succ N f =>
         let f' : X := (fun i => if i < N then f i else ⟨0, by decide⟩)
-        by_cases h : Filter.NeBot (Filter.principal (cylinder f (Finset.range (N + 1))) ⊓ cover)
+        by_cases h : ∀ A ∈ cover, ∃ f'' ∈ A, ∀ i ∈ Finset.range (N + 1), f' i = f'' i
         . exact f'
         . exact (fun i => if i < N then f i else ⟨1, by decide⟩)
     let f : X := fun i => f' i i
@@ -436,6 +454,21 @@ def cylinderCompactSpace : CompactSpace X := {
       have h₁ : T'' ∩ V ⊆ U ∩ V := Set.inter_subset_inter_left _ hT''U
       have h₂ : T'' ∩ V ⊆ ∅ := by rwa [hUV] at h₁
       exact (Set.subset_empty_iff.mp h₂)
+    have : ∃ V' ∈ cover, ∀ g ∈ V', ∃ i ∈ s', g i ≠ f i := by
+      use V
+      apply And.intro hV
+      intro g hg
+      by_contra! H
+      have : g ∈ cylinder f s' := by
+        sorry
+      unfold T'' at hT''V
+      have this' : g ∈ (cylinder f s') ∩ V := And.intro this hg
+      rw [hT''V] at this'
+      simp at this'
+    unfold f at this
+    unfold f' at this
+    simp at this
+
     sorry
 }
 
