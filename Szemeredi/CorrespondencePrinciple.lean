@@ -1,8 +1,10 @@
 import Mathlib.MeasureTheory.Measure.ProbabilityMeasure
 import Mathlib.Data.Fin.Basic
 import Mathlib.Topology.Instances.Discrete
+import Mathlib.Topology.Constructions
 import Mathlib.MeasureTheory.Measure.Prod
 import Mathlib.MeasureTheory.Constructions.Pi
+import Mathlib.MeasureTheory.Constructions.BorelSpace.Basic
 import Mathlib.Dynamics.Ergodic.MeasurePreserving
 import Mathlib.Order.LiminfLimsup
 import Mathlib.Data.Finset.Basic
@@ -93,6 +95,14 @@ open Set MeasureTheory Topology
 def Bin := Finset.range 2
 def X := ℕ → Bin
 
+-- Want to define topological structure on Bin so we can use Tychonoff's theorem
+--   to prove cylinder sets in X are compact
+def binTopologicalSpace : TopologicalSpace Bin := ⊥
+instance : TopologicalSpace Bin := binTopologicalSpace
+instance : TopologicalSpace X := Pi.topologicalSpace
+instance : MeasurableSpace X := borel X
+
+-- still want to define cylinder sets for the sake of ease
 @[simp]
 def cylinder (f : ℕ → Bin) (s : Finset ℕ) : Set X :=
   { x | ∀ i ∈ s, x i = f i }
@@ -101,254 +111,107 @@ def cylinder (f : ℕ → Bin) (s : Finset ℕ) : Set X :=
 def cylinderSets : Set (Set X) :=
   { A | ∃ (s : Finset ℕ) (f : ℕ → Bin), A = cylinder f s }
 
-lemma cylinder_sets_non_empty : ∀ a ∈ cylinderSets, a.Nonempty := by
-  intro a ha
-  unfold cylinderSets at ha
-  simp at ha
-  have ⟨s, f, hsf⟩ := ha
-  rw [hsf]
-  unfold Set.Nonempty
-  exact ⟨f, by simp⟩
-
-def cylinderMeasurableSpace : MeasurableSpace X :=
-  MeasurableSpace.generateFrom cylinderSets
-
-def cylinderTopologicalSpace : TopologicalSpace X :=
-  TopologicalSpace.generateFrom cylinderSets
-
--- Want to define topological structure on Bin so we can use Tychonoff's theorem
---   to prove cylinder sets in X are compact
-def binTopologicalSpace : TopologicalSpace Bin :=
-  TopologicalSpace.generateFrom {{⟨0, by decide⟩}, {⟨1, by decide⟩}}
-
-instance : MeasurableSpace X := cylinderMeasurableSpace
-instance : TopologicalSpace X := cylinderTopologicalSpace
+lemma cylinder_contains (f : X) (s : Finset ℕ) : f ∈ cylinder f s := by
+  unfold cylinder
+  simp
 
 -- Need X to be locally compact hausdorff in order to guarantee existence of weak-* measure
-def cylinderHausdorffSpace : T2Space X := {
+def prodHausdorffSpace : T2Space X := {
   t2 := by
-    intro x y
-    intro h
-    have h₁ : ∃ i : ℕ, x i ≠ y i := Function.ne_iff.mp h
-    let ⟨i, hi⟩ := h₁
-    set u := cylinder x {i} with u'
-    set v := cylinder y {i} with v'
-    have uv_disjoint : Disjoint u v := by
-      unfold Disjoint
-      intros a hau hav
-      simp
-      by_contra! H
-      rcases H with ⟨a', ha⟩
-      have haiu : a' i = x i := by
-        let ha' := ha
-        apply hau at ha'
-        unfold u at ha'
-        unfold cylinder at ha'
-        simp at ha'
-        exact ha'
-      have haiv : a' i = y i := by
-        apply hav at ha
-        unfold v at ha
-        unfold cylinder at ha
-        simp at ha
-        exact ha
-      have xiyi : x i = y i := Eq.trans haiu.symm haiv
-      absurd xiyi
-      exact hi
+    unfold Pairwise
+    simp
+    intro f g hfg
+    have : ∃ i : ℕ, f i ≠ g i := by
+      by_contra!
+      have : f = g := funext this
+      exact hfg this
+    let ⟨i, hi⟩ := this
+    let u := cylinder f {i}
+    let v := cylinder g {i}
+    -- "set" funtions used to show u, v are open under Pi topology
+    let U : ℕ → Set Bin := fun j => if j = i then {f i} else Set.univ
+    let V : ℕ → Set Bin := fun j => if j = i then {g i} else Set.univ
     have hu : IsOpen u := by
-      have : u ∈ cylinderSets := ⟨{i}, x, rfl⟩
-      exact TopologicalSpace.GenerateOpen.basic u this
+      have : u = { f : X | ∀ i, f i ∈ U i } := by
+        unfold U
+        dsimp [u]
+        simp
+      apply isOpen_pi_iff.mpr
+      intro f' hf'
+      use {i}, U
+      simp
+      have : (IsOpen (U i) ∧ f' i ∈ U i) := by
+        dsimp [U]
+        rw [if_pos rfl]
+        dsimp [u] at hf'
+        simp at hf'
+        have hf'₁ : f' i = f i := Set.mem_setOf.mp hf'
+        simp
+        apply And.intro _ hf'₁
+        trivial -- all subsets of Bin are open
+      apply And.intro this
+      have : eval i ⁻¹' U i = { x : X | x i ∈ U i} := by
+        rw [Set.eval_preimage']
+        apply Set.ext
+        intro x
+        simp [update_self, mem_singleton_iff]
+        rfl
+      rw [this]
+      dsimp [u, U]
+      rw [if_pos rfl]
+      simp
     have hv : IsOpen v := by
-      have : v ∈ cylinderSets := ⟨{i}, y, rfl⟩
-      exact TopologicalSpace.GenerateOpen.basic v this
-    have hu_x : x ∈ u := by
-      unfold cylinder at u'
-      rw [u']
+      have : v = { g : X | ∀ i, g i ∈ V i } := by
+        unfold V
+        dsimp [v]
+        simp
+      apply isOpen_pi_iff.mpr
+      intro g' hg'
+      use {i}, V
       simp
-    have hv_y : y ∈ v := by
-      unfold cylinder at v'
-      rw [v']
+      have : (IsOpen (V i) ∧ g' i ∈ V i) := by
+        dsimp [V]
+        rw [if_pos rfl]
+        dsimp [v] at hg'
+        simp at hg'
+        have hg'₁ : g' i = g i := Set.mem_setOf.mp hg'
+        simp
+        apply And.intro _ hg'₁
+        trivial -- all subsets of Bin are open
+      apply And.intro this
+      have : eval i ⁻¹' V i = { x : X | x i ∈ V i} := by
+        rw [Set.eval_preimage']
+        apply Set.ext
+        intro x
+        simp [update_self, mem_singleton_iff]
+        rfl
+      rw [this]
+      dsimp [v, V]
+      rw [if_pos rfl]
       simp
-    exact ⟨u, v, hu, hv, hu_x, hv_y, uv_disjoint⟩
+    use u
+    apply And.intro hu
+    use v
+    apply And.intro hv
+    apply And.intro (cylinder_contains f {i})
+    apply And.intro (cylinder_contains g {i})
+    apply disjoint_iff.mpr
+    simp
+    by_contra! H
+    have ⟨x, hx⟩ := H
+    dsimp [u, v] at hx
+    simp at hx
+    rw [←And.left hx] at hi
+    rw [And.right hx] at hi
+    simp at hi
+
+
 }
 
-open Std
-open Finset
-open Set
-
-lemma finite_intersections_of_cylinders_is_cylinder
-  (a : Set (Set X)) (ha : a ≤ cylinderSets) (ha' : Set.Finite a)
-  : ⋂₀ a ∈ cylinderSets ∨ ⋂₀ a = ∅ := by
-    induction a, ha' using Set.Finite.induction_on with
-    | empty => -- Cylinder taken over an empty set is the full set
-      simp
-      apply Or.intro_left
-      let f : X := (fun i => ⟨1, by decide⟩)
-      have : Set.univ = cylinder f ∅ := by
-        unfold cylinder
-        simp
-      exact ⟨∅, f, this⟩
-    | @insert x s h_notin_s h_finite h_main_implication =>
-      have ⟨hx, s_cylinder⟩ := Set.insert_subset_iff.mp ha
-      apply h_main_implication at s_cylinder
-      have h_cap : x ∩ ⋂₀ s = ⋂₀ insert x s := by -- useful lemma
-        ext b
-        simp
-      rcases s_cylinder with h₁ | h₂ -- split on ⋂₀ s being cylinder or empty
-      . simp at h₁ -- case: ⋂₀ s is a cylinder
-        obtain ⟨ss, fs, hs⟩ := h₁
-        simp at hx
-        obtain ⟨sx, fx, hx'⟩ := hx
-        by_cases H : ∀ i ∈ ss ∩ sx, fs i = fx i -- split on if fs, fx agree on ss ∩ sx
-        . let susx := ss ∪ sx -- case : fs i = fx i on ss ∩ sx
-          have h_susx : susx = ss ∪ sx := by rfl
-          -- Intersection of two cylinders: cylinder susx f
-          --   where f is piecewise defined by fs, fx on ss, sx resp.
-          --   and agree on ss ∩ sx
-          let f : X := (fun i =>
-            if i ∈ sx then fx i else
-            if i ∈ ss then fs i else
-            ⟨1, by decide⟩ -- throwaway
-          )
-          let new_cylinder := cylinder f susx
-          have h_new_cylinder : new_cylinder = cylinder f susx := rfl
-          have : new_cylinder ∈ cylinderSets := by exact ⟨susx, f, h_new_cylinder⟩
-          have h_nc : new_cylinder = x ∩ ⋂₀ s := by -- need to prove both directions
-            rw [h_new_cylinder]
-            unfold cylinder
-            ext z
-            constructor
-            . intro hz
-              simp at hz
-              have hzx : z ∈ x := by
-                rw [h_susx] at hz
-                have : ∀ i ∈ sx, z i = f i := by
-                  intro i hi
-                  apply hz i
-                  exact Finset.mem_union_right _ hi
-                have : ∀ i ∈ sx, z i = fx i := by
-                  intro i hi
-                  unfold f at this
-                  let goal := this i hi
-                  simp [hi] at goal
-                  exact goal
-                rw [hx']
-                exact this
-              have hzs : z ∈ ⋂₀ s := by
-                rw [h_susx] at hz
-                have : ∀ i ∈ ss, z i = f i := by
-                  intro i hi
-                  apply hz i
-                  exact Finset.mem_union_left _ hi
-                have : ∀ i ∈ ss, z i = fs i := by
-                  intro i hi
-                  unfold f at this
-                  let goal := this i hi
-                  split_ifs at goal with in_x
-                  . have : i ∈ ss ∩ sx := by exact Finset.mem_inter.2 ⟨hi, in_x⟩
-                    apply H at this
-                    rw [←this] at goal
-                    exact goal
-                  . exact goal
-                rw [hs]
-                exact this
-              exact ⟨hzx, hzs⟩
-            . intro hz
-              rw [hx', hs] at hz
-              simp at hz
-              have ⟨hzx, hzs⟩ := hz
-              have : ∀ i ∈ susx, z i = f i := by
-                have hzx' : ∀ i ∈ sx, z i = f i := by
-                  unfold f
-                  intro i hi
-                  simp [hi]
-                  apply hzx at hi
-                  exact hi
-                have hzs' : ∀ i ∈ ss, z i = f i := by
-                  unfold f
-                  intro i hi
-                  simp [hi]
-                  split_ifs with in_x
-                  . apply hzx at in_x
-                    exact in_x
-                  . apply hzs at hi
-                    exact hi
-                rw [Finset.forall_mem_union]
-                change ((∀ i ∈ ss, z i = f i) ∧ ∀ i ∈ sx, z i = f i)
-                exact ⟨hzs', hzx'⟩
-              exact this
-          rw [h_nc, h_cap] at this
-          exact Or.inl this
-        . simp at H -- case : fx and fs don't agree -> the intersection is empty
-          obtain ⟨x', hxss, hxsx, hnf⟩ := H
-          have : x ∩ ⋂₀ s = ∅ := by
-            by_contra! H'
-            let ⟨y, hy⟩ := H'
-            let ⟨hyx, hyis⟩ := hy
-            rw [hx'] at hyx
-            simp at hyx
-            rw [hs] at hyis
-            simp at hyis
-            specialize hyx x' hxsx
-            specialize hyis x' hxss
-            rw [hyx] at hyis
-            exact hnf hyis.symm
-          rw [h_cap] at this
-          exact Or.inr this
-      . have : x ∩ ⋂₀ s = ∅ := by -- case : ⋂₀ s = ∅
-          rw [h₂]
-          exact Set.inter_empty x
-        rw [h_cap] at this
-        exact Or.inr this
-
--- Because intersections of cylinders are cylinders or empty, we can
---   improve our explicit formula for open sets
-lemma open_sets_are_infinite_unions_of_cylinders (a : Set X) (ha : IsOpen a)
-  : ∃ A : Set (Set X), A ⊆ cylinderSets ∧ a = ⋃₀ A := by
-    have : ∃ (C : Set (Set X)), (∀ V ∈ C, ∃ (F : Finset (Set X)),
-      (↑F : Set (Set X)) ⊆ cylinderSets ∧ V = ⋂₀ (↑F)) ∧ a = ⋃₀ C :=
-        open_sets_are_infinite_unions_of_finite_intersections ha
-    let ⟨C, hC₁, hC₂⟩ := this
-    have : ∀ V ∈ C, V ∈ cylinderSets ∨ V = ∅ := by
-      intro V hV
-      specialize hC₁ V hV
-      let ⟨F, hF₁, hF₂⟩ := hC₁
-      have : ⋂₀ ↑F ∈ cylinderSets ∨ ⋂₀ (↑F : Set (Set X)) = ∅ := by
-        have hF : (↑F : Set (Set X)).Finite := by simp
-        exact finite_intersections_of_cylinders_is_cylinder F hF₁ hF
-      rw [←hF₂] at this
-      exact this
-    let A : Set (Set X) := {x | x ∈ C ∧ x ≠ ∅}
-    use A
-    apply And.intro
-    . intro z hz
-      unfold A at hz
-      simp at hz
-      specialize this z hz.1
-      exact Or.resolve_right this hz.2
-    . unfold A
-      simp
-      ext x
-      constructor
-      . rw [hC₂]
-        intro hC
-        let ⟨C', hxC, hxC'⟩ := Set.mem_sUnion.1 hC
-        simp
-        use C'
-        apply And.intro _ hxC'
-        have : C' ≠ ∅ := by
-          have h_nonempty : C'.Nonempty := ⟨x, hxC'⟩
-          exact (Set.nonempty_iff_ne_empty).1 h_nonempty
-        exact ⟨hxC, this⟩
-      . intro hx
-        simp at hx
-        let ⟨t, ht₁, ht₂⟩ := hx
-        rw [hC₂]
-        let ⟨ht, _⟩ := ht₁
-        exact Set.mem_sUnion.2 ⟨t, ht, ht₂⟩
-
-def cylinderCompactSpace : CompactSpace X := {
+def prodCompactSpace : CompactSpace X := {
   isCompact_univ := by
+    sorry
+    /-
     unfold IsCompact
     intro cover h_cover_nontrivial h_cover_finer_than_univ
     /-
@@ -470,51 +333,13 @@ def cylinderCompactSpace : CompactSpace X := {
     simp at this
 
     sorry
+  -/
 }
 
-lemma cylinderCompact (a : Set X) (ha : a ∈ cylinderSets) : IsCompact a := by
-  unfold IsCompact
-  intro cover h_cover h_cover_sub
-  -- Compact if for any "cover" filter of a (i.e. filter containing every superset of a),
-  --   there exists a "cluster point" x ∈ a (i.e. any neighborhood of x intersects with
-  --   the cover)
-  simp [ClusterPt]
-  unfold cylinderSets at ha
-  simp at ha
-  have ⟨s, f, hA⟩ := ha
-  use f
-  have : f ∈ a := by
-    rw [hA]
-    sorry
-  apply And.intro this
-  by_contra! H
-  simp at H
-  apply Filter.inf_eq_bot_iff.mp at H
-  have ⟨U, hU, V, hV, hUV⟩ := H
-  have hV_split : a ⊆ V ∨ ¬(a ⊆ V) := Classical.em (a ⊆ V)
-  cases hV_split with
-  | inl hV' =>
-    apply hV' at this
-    apply mem_nhds_iff.mp at hU
-    have ⟨T, hTU, hT_open, hfT⟩ := hU
-    apply hTU at hfT
-    have : f ∈ U ∩ V := by exact ⟨hfT, this⟩
-    rw [hUV] at this
-    exact this
-  | inr hV' =>
-    have ha_cover : a ∈ cover := Filter.le_principal_iff.mp h_cover_sub
-    have h₁ : a ∩ V ∈ cover := Filter.inter_mem ha_cover hV
-    have h₂ : a ∩ V ≠ ∅ := by
-      by_contra! h_empty
-      rw [h_empty] at h₁
-      apply Filter.nonempty_of_mem at h_cover
-      specialize h_cover h₁
-      simp at h_cover
-
-    sorry
-
-def cylinderLocallyCompactSpace : LocallyCompactSpace X := {
+def prodLocallyCompactSpace : LocallyCompactSpace X := {
   local_compact_nhds := by
+    sorry
+    /-
     intros x n' hn'
     rcases mem_nhds_iff.mp hn' with ⟨n, hnn', hno, hn⟩
     have hn₁ : n ∈ 𝓝 x := mem_nhds_iff.mpr ⟨n, subset_rfl, hno, hn⟩
@@ -545,10 +370,11 @@ def cylinderLocallyCompactSpace : LocallyCompactSpace X := {
     have a_nhd : a ∈ 𝓝 x := a_open.mem_nhds hax
     have a_compact : IsCompact a := cylinderCompact a ha
     exact ⟨a_nhd, han', a_compact⟩
+  -/
 }
 
-instance : T2Space X := cylinderHausdorffSpace
-instance : LocallyCompactSpace X := cylinderLocallyCompactSpace
+instance : T2Space X := prodHausdorffSpace
+instance : LocallyCompactSpace X := prodLocallyCompactSpace
 
 -- The shift map, and proving the shift map is measurable
 def T : X → X :=
