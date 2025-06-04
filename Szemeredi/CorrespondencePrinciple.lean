@@ -115,19 +115,6 @@ instance : WeaklyLocallyCompactSpace X := {
 instance : LocallyCompactSpace X := WeaklyLocallyCompactSpace.locallyCompactSpace
 instance : MeasurableSpace X := borel X
 
--- still want to define cylinder sets for the sake of ease
-@[simp]
-def cylinder (f : ℕ → Bin) (s : Finset ℕ) : Set X :=
-  { x | ∀ i ∈ s, x i = f i }
-
-@[simp]
-def cylinderSets : Set (Set X) :=
-  { A | ∃ (s : Finset ℕ) (f : ℕ → Bin), A = cylinder f s }
-
-lemma cylinder_contains (f : X) (s : Finset ℕ) : f ∈ cylinder f s := by
-  unfold cylinder
-  simp
-
 -- The shift map, and proving the shift map is measurable
 def T : X → X :=
   fun f : X => (fun i : ℕ => f (i + 1))
