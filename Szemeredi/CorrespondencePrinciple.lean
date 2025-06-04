@@ -212,49 +212,15 @@ lemma preimage_of_measurable_is_measurable (b : Set X) (hb : MeasurableSet b) : 
   | compl u hu hu' =>
     have : T⁻¹' uᶜ = (T⁻¹' u)ᶜ := by rfl
     rw [this]
-    have : IsOpen (T⁻¹' u) := by sorry
-    sorry
-  | iUnion f hf hf' => sorry
-
-
-
-lemma preimage_of_cylinder_is_measurable (b : Set X) (hb : b ∈ cylinderSets)
-  : MeasurableSet (T⁻¹' b) := by
-  rcases hb with ⟨s, f, rfl⟩
-  let s' : Finset ℕ := s.image Nat.succ
-  let g := f ∘ Nat.pred
-  have : T ⁻¹' cylinder f s = cylinder g s' := by
-    ext x
-    simp [cylinder, Set.preimage, s', g]
-    unfold T
-    rfl
-  rw [this]
-  let b := cylinder g s'
-  change MeasurableSet b
-  have h: b ∈ cylinderSets := ⟨s', g, rfl⟩
-  apply GenerateMeasurable.basic
-  exact h
+    exact GenerateMeasurable.compl (T⁻¹' u) hu'
+  | iUnion f hf hf' =>
+    have : T⁻¹' ⋃ i, f i = ⋃ i, (T⁻¹' f i) := Set.preimage_iUnion
+    rw [this]
+    exact GenerateMeasurable.iUnion (fun i => T⁻¹' f i) hf'
 
 lemma T_is_measurable : Measurable T := by
-  intro a
-  intro h
-  unfold MeasurableSet at h
-  unfold instMeasurableSpaceX at h
-  unfold cylinderMeasurableSpace at h
-  -- h : (generateFrom cylinderSets).MeasurableSet' a
-  dsimp only [MeasurableSpace.generateFrom, MeasurableSpace.MeasurableSet'] at h
-  induction h with
-  | basic b h₁ => exact preimage_of_cylinder_is_measurable b h₁
-  | empty => dsimp only [Set.preimage_empty]; exact MeasurableSet.empty
-  | compl t ht htinv =>
-    dsimp
-    let t' := T ⁻¹' t
-    apply GenerateMeasurable.compl t'
-    exact htinv
-  | iUnion f h h₁ =>
-    simp
-    apply GenerateMeasurable.iUnion
-    exact h₁
+  intro a h
+  exact preimage_of_measurable_is_measurable a h
 
 -- define the positive density measure
 
