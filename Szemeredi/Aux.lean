@@ -16,6 +16,23 @@ open scoped BigOperators
 open NNReal
 open Set
 
+-- Set theory
+lemma set_disjoint (a b : Set α) (h : Disjoint a b) : a ∩ b = ∅ := by
+  unfold Disjoint at h
+  by_contra! H
+  let ⟨x, hx⟩ := H
+  let X : Set α := {x}
+  have : X ⊆ a ∩ b := singleton_subset_iff.mpr hx
+  have ⟨ha, hb⟩ := Set.subset_inter_iff.mp this
+  specialize h ha hb
+  simp at h
+  unfold X at h
+  simp at h
+
+lemma finite_sum_equiv (a : Set α) (ha : a.Finite) (b : ℕ → Set α) {hb : ∀ i : ℕ, (b i).Finite}
+  (hab : a = ⋃ i : ℕ, b i) : (ha.toFinset.card : ENNReal) = ∑' i : ℕ, ((hb i).toFinset.card : ENNReal) := sorry
+
+
 -- Combinatorics
 noncomputable def avg_lt_n (a : Set ℕ) (n : ℕ) : ℝ≥0 :=
   let lt_n := {x ∈ a | x ≤ n}

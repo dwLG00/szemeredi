@@ -15,6 +15,7 @@ import Mathlib.Algebra.Order.Field.Basic
 import Mathlib.Data.Set.Finite.Basic
 import Mathlib.Data.Set.Basic
 import Mathlib.Logic.Function.Basic
+import Mathlib.Logic.Relation
 import Init.Classical
 
 import Szemeredi.AuxMeasureTheory
@@ -244,7 +245,63 @@ lemma μs_proto_empty_zero
   unfold μs_proto
   simp
 
-open BigOperators
+open BigOperators ENNReal
+
+/-
+lemma finset_iUnion_card (f : ℕ → Set α) (h : (⋃ i : ℕ, f i).Finite) (h' : ∀ i : ℕ, (f i).Finite) (h_disj : Pairwise (Disjoint on f)) : h.toFinset.card = ∑' i : ℕ, (h' i).toFinset.card := by
+  --have : {x | x ∈ (⋃ i : ℕ, f i)}.Finite := h
+  --have : h.toFinset.card = h.toFintype := rfl
+-/
+
+noncomputable def unionSubtypeEquivSigma (f : ℕ → Set α) (h : Pairwise (Disjoint on f)) : { x // x ∈ ⋃ i, f i } ≃ Σ i, { x // x ∈ f i } :=
+{
+  toFun := fun ⟨x, hx_union⟩ =>
+    let ih := Set.mem_iUnion.mp hx_union
+    let i := Classical.choose ih
+    let hxi := Classical.choose_spec ih
+    ⟨i, ⟨x, hxi⟩⟩,
+  invFun := fun ⟨i, ⟨x, hxi⟩⟩ => ⟨x, mem_iUnion.2 ⟨i, hxi⟩⟩,
+  left_inv := by
+    rintro ⟨x, hx_union⟩
+    simp
+  right_inv := fun ⟨i, ⟨x, hxi⟩⟩ => by
+    let ih := Set.mem_iUnion.mp (Set.mem_iUnion.2 ⟨i, hxi⟩)
+    let j  := Classical.choose ih
+    have hj : x ∈ f j := Classical.choose_spec ih
+    have hji : j = i := by
+      by_contra! hne
+      have hdis : Disjoint (f j) (f i) := h hne
+      have hx : x ∈ f j ∧ x ∈ f i := ⟨hj, hxi⟩
+      have : x ∈ f j ∩ f i := hx
+      have this' : f j ∩ f i = ∅ := set_disjoint (f j) (f i) hdis
+      rw [this'] at this
+      exact this
+    simp
+
+    have : Classical.choose (mem_iUnion.mp (mem_iUnion.mpr (Exists.intro i hxi))) = i := by
+      have w : Set.mem_iUnion.mp (Set.mem_iUnion.mpr (Exists.intro i hxi)) = Exists.intro i hxi := by
+        simp [Set.mem_iUnion]
+      rw [w]
+      have uniq : ∃! j, x ∈ f j := by
+        use i
+        simp
+        apply And.intro hxi
+        intro y hy
+        by_contra! H
+        have : x ∈ f j ∩ f y := ⟨hj, hy⟩
+        have hjy : j ≠ y := by simpa [hji] using (ne_comm.mp H)
+        have hdis : Disjoint (f j) (f y) := h hjy
+        have this' : f j ∩ f y = ∅ := set_disjoint (f j) (f y) hdis
+        rw [this'] at this
+        exact this
+      sorry
+
+      --exact h_unique (Classical.choose ⟨i, hxi⟩)
+    apply And.intro this
+    sorry
+
+}
+
 
 def μs (s : X) (h : positive_upper_density (func_to_subset s)) : ℕ → Measure X :=
   fun n : ℕ => (
@@ -259,7 +316,13 @@ def μs (s : X) (h : positive_upper_density (func_to_subset s)) : ℕ → Measur
         simp
         unfold μs_proto
         have h_ne : (↑n + 1 : ENNReal) ≠ 0 := by simp
-        simp
+        have h_inv_ne : (↑n + 1 : ENNReal)⁻¹ ≠ 0 := by simp
+        have h_inv_ne' : (↑n + 1 : ENNReal)⁻¹ ≠ ∞ := by simp
+        simp [div_eq_mul_inv]
+        rw [ENNReal.tsum_mul_right, mul_comm]
+        apply symm
+        rw [mul_comm]
+        apply (ENNReal.mul_right_inj h_inv_ne h_inv_ne').mpr
         sorry
         --rw [tsum_div_const (fun i => (μs_proto._proof_4 n s (f i)).toFinset.card) h_ne]
       ) -- TODO: prove that μs is additive
